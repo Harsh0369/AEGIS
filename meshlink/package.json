@@ -1,0 +1,30 @@
+{
+  "name": "meshlink",
+  "version": "1.0.0",
+  "description": "Offline multi-hop mesh messaging prototype",
+  "type": "module",
+  "main": "dist/src/cli/main.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/tests/**/*.test.js",
+    "test:unit": "node --test dist/tests/protocol/*.test.js dist/tests/routing/*.test.js",
+    "test:transport": "node --test dist/tests/transport/*.test.js",
+    "test:integration": "node --test dist/tests/integration/*.test.js",
+    "demo": "node dist/examples/five-node-demo.js",
+    "start": "node dist/src/cli/main.js",
+    "clean": "rimraf dist",
+    "rebuild": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "mesh",
+    "networking",
+    "offline",
+    "multi-hop",
+    "routing"
+  ],
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}

@@ -183,8 +183,20 @@ Store actual test output or screenshots in the `evidence/` directory.
 
 ## 8. Test result log
 
-_Update this table as tests are run._
+### 8.1 Automated Unit & Integration Tests (CLI)
+| Date | Test Suite / Command | Pass | Fail | Notes |
+|:---|:---|:---|:---|:---|
+| 2026-10-16 | `npm test` (`dist/tests/**/*.test.js`) | **114** | **0** | 24 suites: PacketValidator, FrameCodec, DuplicateCache, RouteTable, NeighborTable, Router, MessageManager, TcpTransport, multi-hop integration |
+| 2026-10-16 | `npm run demo` (5-Node Simulation) | **Pass** | **0** | Verified full roundtrip: A → B → C → D → E and reply E → D → C → B → A |
 
-| Date | Test suite | Pass | Fail | Notes |
-|------|-----------|------|------|-------|
-| —    | —         | —    | —    | —     |
+### 8.2 Android Build Verification
+| Date | Build Target | Output Artifact | Result | Notes |
+|:---|:---|:---|:---|:---|
+| 2026-10-16 | `gradle -p mobile/android assembleDebug` | `app-debug.apk` (3,202,217 bytes) | ✅ **SUCCESS** | Built with Android SDK 35, Gradle 8.13, AGP 8.8.2, Kotlin 2.0.21. Embedded offline React assets in `assets/web/`. |
+
+### 8.3 Physical-Phone Verification (Hardware Tests)
+| Date | Device Models | Test Scenario | Verified Result | Notes |
+|:---|:---|:---|:---|:---|
+| — | Phone A + Phone B | P1 Direct Offline Connection | *Pending P1* | Physical hardware not attached during P0. Simulation verified; hardware test scheduled for Milestone P1. |
+| — | Phone A + Phone B + Phone C | P3 Multi-Hop Relay | *Pending P3* | Must verify whether Wi-Fi Direct GO topology permits relaying on real devices without simulation. |
+

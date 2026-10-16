@@ -4,18 +4,36 @@
 
 ## Quick Start
 
+### 1. Terminal / CLI Simulation (Node.js & TypeScript)
 ```bash
 # Install dependencies
 npm install
 
-# Build
+# Build TypeScript
 npm run build
 
-# Run tests
+# Run all 114 automated tests
 npm test
 
-# Run the five-node demo
+# Run the five-node multi-hop demo (A ←→ B ←→ C ←→ D ←→ E)
 npm run demo
+```
+
+### 2. Android Mobile Application (Physical Phone)
+The Android mobile application is built in `mobile/` with a React/TypeScript interface and native Android SDK connectivity.
+
+```powershell
+# Build the Android APK using Gradle:
+gradle -p mobile/android assembleDebug
+
+# Output APK location:
+# mobile/android/app/build/outputs/apk/debug/app-debug.apk (~3.2 MB)
+
+# Install onto connected phone via USB:
+adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+# Launch app on device:
+adb shell am start -n com.meshlink.app.debug/com.meshlink.MainActivity
 ```
 
 ## Demonstration Topology
@@ -31,38 +49,31 @@ Node A sends a message to Node E through intermediate nodes B, C, and D. Each no
 ```
 meshlink/
 ├── AGENTS.md              # Agent behavioral rules
-├── PROJECT.md             # Goals and scope
-├── ARCHITECTURE.md        # Components and packet flow
-├── PLAN.md                # Seven-day execution plan
+├── PROJECT.md             # Goals, roadmap, and milestone status
+├── ARCHITECTURE.md        # Components, packet flow, and mobile bridge
+├── PLAN.md                # Milestone execution plan (CLI + Android P0-P4)
+├── ANDROID_PLAN.md        # Android setup, device prerequisites, and USB install steps
 ├── DECISIONS.md           # Architecture decision log
-├── TESTING.md             # Test requirements and acceptance
-├── RESEARCH.md            # Research context and limitations
-├── MASTER_PROMPT.md       # Coding agent instructions
-├── src/
-│   ├── cli/               # CLI entry point and demo
-│   ├── core/              # Node orchestration and messaging
-│   ├── protocol/          # Packet types, validation, framing
-│   ├── routing/           # Router, route table, neighbors, dedup
-│   ├── transport/         # Transport interface and TCP impl
-│   ├── logging/           # Structured per-node logging
-│   └── config/            # Default configuration
-├── tests/
-│   ├── protocol/          # Packet and framing tests
-│   ├── routing/           # Route table and forwarding tests
-│   ├── transport/         # TCP transport tests
-│   └── integration/       # Multi-node integration tests
-├── examples/              # Demo scripts
-└── evidence/              # Test output and screenshots
+├── TESTING.md             # Test requirements, results log, and hardware checks
+├── RESEARCH.md            # Research context, topology limits, and trade-offs
+├── src/                   # Core TypeScript mesh engine (Packet, Router, Tables)
+├── tests/                 # 114 unit and integration tests (node:test)
+├── examples/              # Repeatable multi-node demo scripts
+├── mobile/                # Android application module
+│   ├── src/               # React UI (Header, Selector, Messages, Log Console)
+│   └── android/           # Gradle build, AndroidManifest, MainActivity, MeshBridge
+└── evidence/              # Test output and demo logs
 ```
 
 ## Documentation
 
 - [Project Definition](./PROJECT.md)
-- [Architecture](./ARCHITECTURE.md)
+- [Architecture & Mobile Bridge](./ARCHITECTURE.md)
 - [Execution Plan](./PLAN.md)
+- [Android Setup & Device Roadmap](./ANDROID_PLAN.md)
 - [Decisions](./DECISIONS.md)
-- [Testing](./TESTING.md)
-- [Research Context](./RESEARCH.md)
+- [Testing & Verified Results](./TESTING.md)
+- [Research Context & Limitations](./RESEARCH.md)
 
 ## Limitations
 

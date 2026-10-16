@@ -113,11 +113,24 @@ Sensors, 2018, 18(3), 776.
 | Test evidence    | Terminal output, screenshots         |
 | Limitations      | What this does and does not prove     |
 
-### Real device experiments (if attempted)
+### Real device experiments & Wi-Fi Direct Topology Constraints
 
-Record additionally:
+When transitioning from local simulation to physical Android devices, the following fundamental constraints apply:
+
+1. **Group Owner (GO) Star Topology:**
+   Android's `WifiP2pManager` operates by electing one device as the **Group Owner (GO)**, functioning as a software Access Point and DHCP server (assigning IP addresses typically in `192.168.49.0/24`). All other devices join as P2P Clients.
+
+2. **Multi-Hop Relay Constraint:**
+   In standard consumer Android implementations, a single Wi-Fi interface cannot simultaneously act as a P2P Client connected to Group A and a Group Owner hosting Group B. As a consequence, establishing an arbitrary linear chain `Phone A ←→ Phone B ←→ Phone C` via pure Wi-Fi Direct without cross-group bridging or Wi-Fi Aware (NAN) is often physically blocked by firmware.
+
+3. **Transport Choice Trade-Offs:**
+   - **Wi-Fi Direct:** High throughput (>10 MB/s), standard Android API since API 14, but constrained to star topologies around the GO.
+   - **Local Hotspot + TCP ServerSocket:** Very high reliability for two-device direct testing (P1); straightforward socket establishment without lengthy P2P group negotiation.
+   - **Bluetooth Low Energy (BLE):** Low throughput, but supports true decentralized advertising and scanning across multiple independent devices.
+
+Record for real device experiments:
 - Phone models and Android versions
-- Wi-Fi P2P group topology
+- Wi-Fi P2P group topology (who is GO, who is Client)
 - Physical distances between devices
 - Number of trials
 - Message sizes

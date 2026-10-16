@@ -138,6 +138,25 @@
 
 ---
 
-## Future decisions
+## D012 — Android Mobile Architecture & Native Bridge
 
-_Record new decisions below using the same format._
+| Field        | Value |
+|--------------|-------|
+| **Context**  | Building the mobile application without risking the working CLI core or encountering NDK C++ build failures on Windows |
+| **Decision** | Structure mobile application under `mobile/` with React/TypeScript UI bundled inside an Android WebView activity backed by Kotlin `MeshBridge` and native transport `AndroidDirectTransport` |
+| **Reason**   | 1. Compiles cleanly into standalone APK with Gradle 8.13 and Android SDK 35 without 1+ GB external C++ toolchains.<br>2. Direct, unrestricted access to Android native `WifiP2pManager` and sockets via Kotlin.<br>3. UI assets bundled into APK, allowing true offline execution without a laptop or Metro bundler. |
+| **Consequences** | `app-debug.apk` is 3.2 MB and self-contained; core CLI and test suite in `src/` remain completely untouched. |
+| **Status**   | ✅ Accepted |
+
+---
+
+## D013 — Physical Phone Hardware Testing Discipline
+
+| Field        | Value |
+|--------------|-------|
+| **Context**  | Transition from simulated multi-hop to physical Android devices |
+| **Decision** | Separate verification into strict milestones: P0 (UI + APK build) → P1 (2-phone direct offline) → P2 (router integration) → P3 (3-phone relay attempt) |
+| **Reason**   | Wi-Fi Direct on Android forms star topologies around a Group Owner (GO), making multi-hop ad-hoc topologies difficult without rooting or custom Wi-Fi Aware hardware. |
+| **Consequences** | Never claim physical multi-hop works until verified on real hardware with ADB logs. If physical forwarding is constrained by Wi-Fi Direct driver limitations, document the limitation honestly while relying on the verified CLI demo for multi-hop. |
+| **Status**   | ✅ Accepted |
+

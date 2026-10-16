@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MeshLink Mobile</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="root">
+    <div class="meshlink-app">
+      <!-- Header Area -->
+      <div id="header-area" class="header-container"></div>
+
+      <!-- Destination Selection Area -->
+      <div id="dest-area" class="dest-container"></div>
+
+      <!-- Main Chat Area -->
+      <div class="main-content-area">
+        <div class="chat-section">
+          <div id="messages-area" class="message-list-container"></div>
+
+          <!-- Message Input Bar -->
+          <div class="input-bar-container">
+            <input
+              type="text"
+              id="msg-input"
+              class="message-input-field"
+              placeholder="Compose offline mesh packet..."
+              autocomplete="off"
+            />
+            <button id="send-btn" class="send-button" disabled>
+              <span class="send-icon">📤</span>
+              <span class="send-text">Send</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Diagnostic Console -->
+        <div id="diagnostic-console" class="diagnostic-console expanded">
+          <div class="console-header">
+            <div class="console-title-group">
+              <span class="console-icon">⚙️</span>
+              <span class="console-title">Diagnostic Packet Log</span>
+              <span id="log-count" class="log-count">(0)</span>
+            </div>
+            <div class="console-controls">
+              <button id="btn-sim-inbound" class="console-btn sim-btn" title="Simulate packet arrival">
+                🧪 Test Inbound
+              </button>
+              <button id="btn-clear-logs" class="console-btn clear-btn" title="Clear log output">
+                🧹 Clear
+              </button>
+              <button id="btn-toggle-console" class="console-btn toggle-btn">
+                ▼
+              </button>
+            </div>
+          </div>
+          <div id="console-body" class="console-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

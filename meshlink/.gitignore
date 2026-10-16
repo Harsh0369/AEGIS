@@ -23,3 +23,11 @@ coverage/
 
 # Logs
 *.log
+
+# Android & Gradle
+.gradle/
+**/build/
+**/local.properties
+*.apk
+*.aab
+

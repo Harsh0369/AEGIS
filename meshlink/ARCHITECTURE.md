@@ -272,35 +272,41 @@ Only **after static multi-hop forwarding works**, add route discovery if time al
 
 ---
 
-## 11. Future Android architecture (P2)
+## 11. Android architecture & mobile flow
 
 ```
-┌─────────────────────┐
-│  React Native UI    │
-└────────┬────────────┘
-         │
-┌────────▼────────────┐
-│  TypeScript         │
-│  Mesh Core          │
-└────────┬────────────┘
-         │
-┌────────▼────────────┐
-│  Transport Interface│
-└────────┬────────────┘
-         │
-┌────────▼────────────┐
-│  Android Native     │
-│  Module (Kotlin)    │
-└────────┬────────────┘
-         │
-┌────────▼────────────┐
-│  Android Wi-Fi P2P  │
-│  APIs               │
-└─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Android Mobile App                     │
+├─────────────────────────────────────────────────────────────┤
+│  React UI (mobile/src/App.tsx)                              │
+│  - Node ID Banner & Topology Quick-Pick (Node-A...Node-E)   │
+│  - Message Input & Conversation Thread                      │
+│  - Connection Status Badge                                  │
+│  - Live Diagnostic Event Log Console                        │
+├─────────────────────────────────────────────────────────────┤
+│  Mesh State Manager (mobile/src/state/MeshStateManager.ts)  │
+│  - Packet Creation & Validation (MeshPacket Schema)         │
+│  - In-Memory Message Tracking (queued/sent/delivered)       │
+│  - Structured Diagnostic Event Pipeline                     │
+├─────────────────────────────────────────────────────────────┤
+│  Native Bridge (com.meshlink.MeshBridge)                    │
+│  - Bidirectional JS-to-Kotlin Bridge via @JavascriptInterface│
+├─────────────────────────────────────────────────────────────┤
+│  Android Direct Transport (AndroidDirectTransport.kt)        │
+│  - Native Bridge Interface to Android OS                     │
+│  - In P0: Validates packet pipeline and local loopback      │
+│  - In P1: Dispatches frames over Wi-Fi Direct socket/BLE     │
+├─────────────────────────────────────────────────────────────┤
+│  Android OS Layer                                           │
+│  - WifiP2pManager (Wi-Fi Direct) / Local TCP ServerSocket    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- The Android native module handles Android-specific discovery and connection operations. It **does not implement mesh routing**.
-- The terminal simulation remains a separate testable environment for the same routing concepts.
+### Architectural Safeguards:
+1. **Preserved Core CLI:** The Node.js terminal prototype and its 114 automated tests remain completely intact in `src/` and `tests/`.
+2. **Unified Packet Protocol:** The mobile app's packet schema is 1:1 identical to `MeshPacket` in [`src/protocol/Packet.ts`](file:///c:/Users/harsh/OneDrive/Desktop/AEGIS/meshlink/src/protocol/Packet.ts).
+3. **Pluggable Transport Contract:** The routing engine depends only on the abstract [`Transport`](file:///c:/Users/harsh/OneDrive/Desktop/AEGIS/meshlink/src/transport/Transport.ts) interface.
+4. **Standalone Packaging:** The mobile UI assets are bundled into `mobile/android/app/src/main/assets/web/` so the APK runs self-contained without needing an active development laptop or bundler.
 
 ---
 

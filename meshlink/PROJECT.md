@@ -18,7 +18,8 @@ A sends to E. B, C, and D relay the message. E delivers it.
 
 ## Primary objective
 
-Demonstrate correct multi-hop routing and forwarding in a **repeatable terminal-based prototype** within one week.
+1. **Active Target:** Demonstrate genuine offline messaging and multi-hop forwarding on physical Android hardware across incremental milestones (P0 UI & Build → P1 Direct Connectivity → P2 Routing Engine Integration → P3 Multi-Phone Relay).
+2. **Tested Fallback:** Retain the fully verified, 114-test terminal-based prototype simulating 5-node A ↔ B ↔ C ↔ D ↔ E multi-hop mesh.
 
 ---
 
@@ -26,45 +27,21 @@ Demonstrate correct multi-hop routing and forwarding in a **repeatable terminal-
 
 Student project evaluators who need to:
 
-- See a **working implementation**
-- Understand its **architecture**
-- **Reproduce** the demonstration
+- See a **working implementation** (physical Android app and terminal simulation)
+- Understand its **architecture** (protocol separation from physical transport)
+- **Reproduce** the demonstration easily via USB (`adb install`) or CLI (`npm run demo`)
 
 ---
 
-## Required MVP features (P0)
+## Current Roadmap & Milestones
 
-| #  | Feature                                              |
-|----|------------------------------------------------------|
-| 1  | Five logical nodes                                   |
-| 2  | Stable logical node IDs                              |
-| 3  | Packet representation and validation                 |
-| 4  | Neighbor relationships                               |
-| 5  | Routing table and next-hop lookup                    |
-| 6  | Multi-hop forwarding                                 |
-| 7  | Message IDs and duplicate suppression                |
-| 8  | TTL/hop-limit enforcement                            |
-| 9  | TCP transport (or equally explicit IPC transport)    |
-| 10 | Correct TCP message framing (length-prefixed)        |
-| 11 | Readable routing and packet logs                     |
-| 12 | Automated tests                                      |
-| 13 | Setup instructions and repeatable demo               |
-| 14 | Honest limitations documentation                     |
-
----
-
-## Optional features (P1 / P2)
-
-| Priority | Feature                                     |
-|----------|---------------------------------------------|
-| P1       | Simplified automatic route discovery        |
-| P1       | Alternate paths and basic route recovery    |
-| P1       | CLI for live node management                |
-| P2       | Minimal React Native GUI                    |
-| P2       | Android Wi-Fi P2P feasibility test          |
-| P2       | Kotlin native module                        |
-
-> **Optional features must not delay the core MVP.**
+| Priority | Milestone | Status | Key Deliverable |
+|:---|:---|:---|:---|
+| **P0 (CLI)** | Core Multi-Hop Mesh (Node.js/TS) | **COMPLETED** | 114 tests passing; 5-node A→B→C→D→E demo |
+| **P0 (App)** | Android UI & Installable Build | **COMPLETED** | React UI with Node ID, Destination, Message list, Diagnostic log, and valid `app-debug.apk` |
+| **P1** | Two-Phone Offline Connectivity | **NEXT** | Direct offline communication between two physical phones via Android SDK transport |
+| **P2** | Routing Engine Integration | **PLANNED** | Android transport wired to shared TypeScript protocol & router |
+| **P3** | Three-Phone Physical Relay | **PLANNED** | Multi-hop A → B → C forwarding through intermediate phone |
 
 ---
 

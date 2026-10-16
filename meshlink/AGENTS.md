@@ -10,21 +10,25 @@ Read **PROJECT.md**, **ARCHITECTURE.md**, **PLAN.md**, **DECISIONS.md**, **TESTI
 
 ## Mandatory rules
 
-1. **Preserve the seven-day deadline** and prioritize a working terminal MVP.
-2. **Inspect existing code** before editing it.
-3. Use **TypeScript** and **Node.js** for the core implementation.
+1. **Preserve the working CLI MVP** and ensure all 114 core tests and 5-node demo pass after every change.
+2. **Inspect existing code** before editing it; do not create duplicate routing engines.
+3. Use **TypeScript** and **Node.js** for the core implementation; mobile UI is built in React/TypeScript with native Android SDK transport.
 4. Keep **routing independent** of transport-specific code.
-5. Keep the initial architecture **small and understandable**.
-6. **Do not start** optional Android or React Native work while P0 requirements are failing.
-7. **Never claim** a feature is implemented or tested without evidence.
-8. **Run relevant tests** after changes and report failures honestly.
-9. **Update PLAN.md** with completed tasks, current status, blockers, and next actions.
-10. **Record** important architectural decisions in **DECISIONS.md**.
-11. **Update documentation** when commands, interfaces, behavior, or limitations change.
-12. **Never fabricate** research citations, experimental measurements, or device-test results.
-13. **Ask before** destructive operations, deleting existing work, or performing broad rewrites.
-14. **Do not add dependencies** without a clear reason.
-15. **Do not leave placeholder implementations** presented as working features.
+5. Keep the architecture **small and understandable**.
+6. **Prioritize strictly:** P0 (CLI works + Android builds) → P1 (2-phone direct offline connection) → P2 (router integration) → P3 (3-phone relay). Do not begin P4 before P0-P2 are verified.
+7. **Physical-Device Testing Rules:**
+   - Never claim a physical phone test passed unless it was actually run on real hardware via ADB.
+   - Always distinguish automated mock/unit test results from real physical phone connectivity results.
+   - If multi-hop topology fails on physical phones due to Wi-Fi Direct Group Owner limitations, document the limitation honestly rather than simulating success.
+8. **Never claim** a feature is implemented or tested without evidence.
+9. **Run relevant tests** after changes and report failures honestly.
+10. **Update PLAN.md and ANDROID_PLAN.md** with completed tasks, current status, blockers, and next actions.
+11. **Record** important architectural decisions in **DECISIONS.md**.
+12. **Update documentation** when commands, interfaces, behavior, or limitations change.
+13. **Never fabricate** research citations, experimental measurements, or device-test results.
+14. **Ask before** destructive operations, deleting existing work, or performing broad rewrites.
+15. **Do not add unnecessary dependencies**.
+16. **Do not leave placeholder implementations** presented as working features.
 
 ---
 

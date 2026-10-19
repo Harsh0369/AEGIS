@@ -4,13 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>MeshLink Mobile</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
   <div id="root">
     <div class="meshlink-app">
       <!-- Header Area -->
       <div id="header-area" class="header-container"></div>
+
+      <!-- P2P Direct Link Control Area -->
+      <div id="p2p-control-area" class="p2p-control-container"></div>
 
       <!-- Destination Selection Area -->
       <div id="dest-area" class="dest-container"></div>
@@ -45,9 +48,6 @@
               <span id="log-count" class="log-count">(0)</span>
             </div>
             <div class="console-controls">
-              <button id="btn-sim-inbound" class="console-btn sim-btn" title="Simulate packet arrival">
-                🧪 Test Inbound
-              </button>
               <button id="btn-clear-logs" class="console-btn clear-btn" title="Clear log output">
                 🧹 Clear
               </button>
@@ -62,6 +62,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

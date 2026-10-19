@@ -78,47 +78,58 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 
 .logo-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .logo-icon {
-  font-size: 26px;
+  font-size: 22px;
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2));
   border: 1px solid var(--border-accent);
-  padding: 6px;
+  padding: 5px;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-glow);
+  flex-shrink: 0;
 }
 
 .app-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.5px;
   background: linear-gradient(to right, #38bdf8, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  white-space: nowrap;
 }
 
 .app-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.node-badge-container {
+  flex-shrink: 0;
 }
 
 .node-display {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: var(--radius-md);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
@@ -127,13 +138,13 @@ body {
 }
 
 .node-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--accent-cyan);
 }
 
 .node-id-val {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
 }
@@ -616,3 +627,169 @@ body {
 .log-msg {
   color: #cbd5e1;
 }
+
+/* P2P Link Control Area */
+.p2p-control-container {
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.role-btn {
+  flex: 1;
+  min-width: 110px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.role-btn.active-host {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.role-btn.active-client {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.p2p-host-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.3);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+
+.p2p-ip-badge {
+  font-size: 11px;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.p2p-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.p2p-client-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ip-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ip-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+.ip-input:focus {
+  border-color: var(--accent-cyan);
+}
+
+.btn-connect {
+  flex-shrink: 0;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-connect:hover {
+  background: #2563eb;
+}
+
+.quick-ips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quick-ip-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.quick-ip-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.quick-ip-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.status-dot.connected {
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 10px var(--accent-emerald);
+}
+
+.status-dot.disconnected {
+  background-color: var(--accent-rose);
+  box-shadow: 0 0 6px var(--accent-rose);
+  animation: none;
+}
+

@@ -1,12 +1,11 @@
 /**
- * MeshLink Mobile — Runtime Application Bundle
+ * MeshLink Mobile — Milestone P1 Application Runtime
  *
- * Implements the interactive React/JS frontend for the Android APK:
- * - Node ID & Target Destination selector
- * - Protocol-compliant packet generation (MeshPacket)
- * - Message thread with hop/TTL diagnostic badges
- * - Monospace live diagnostic log console
- * - Bi-directional Android Native Bridge integration
+ * Full offline direct wireless/socket transport between two physical phones:
+ * - Hardware auto-differentiation (Node-A for Host, Node-B for Client)
+ * - Real-time TCP stream framing (4-byte length prefix)
+ * - Inbound and outbound message synchronization
+ * - Connection status indicator & P2P IP configuration
  */
 
 (function () {
@@ -15,8 +14,12 @@
   // --- State ---
   const state = {
     nodeId: 'Node-A',
+    role: 'HOST', // 'HOST' or 'CLIENT'
     destinationId: 'Node-B',
-    connectionStatus: 'Offline — Standalone Ready (P0)',
+    connectionStatus: 'Initializing...',
+    isConnected: false,
+    localIp: '127.0.0.1',
+    hostIpInput: '10.168.213.199', // Default to Phone 1's IP
     messages: [],
     logs: [],
     isEditingNodeId: false,
@@ -51,11 +54,47 @@
       level: level,
       message: message,
     });
-    if (state.logs.length > 80) state.logs.pop();
+    if (state.logs.length > 100) state.logs.pop();
     renderLogs();
   }
 
   // --- Actions ---
+  function switchRole(newRole) {
+    state.role = newRole;
+    if (newRole === 'HOST') {
+      state.nodeId = 'Node-A';
+      state.destinationId = 'Node-B';
+      if (window.AndroidBridge) {
+        window.AndroidBridge.setNodeId('Node-A');
+        window.AndroidBridge.setRole('HOST');
+      }
+      addLog('INFO', 'Switched to Node-A (Host Mode on :9001)');
+    } else {
+      state.nodeId = 'Node-B';
+      state.destinationId = 'Node-A';
+      if (window.AndroidBridge) {
+        window.AndroidBridge.setNodeId('Node-B');
+        window.AndroidBridge.setRole('CLIENT');
+      }
+      addLog('INFO', 'Switched to Node-B (Client Mode)');
+    }
+    renderHeader();
+    renderP2PControl();
+    renderPresets();
+  }
+
+  function connectToHost() {
+    const ip = state.hostIpInput.trim();
+    if (!ip) {
+      addLog('WARN', 'Please enter a valid Host IP address');
+      return;
+    }
+    addLog('INFO', `Initiating direct socket connection to ${ip}:9001...`);
+    if (window.AndroidBridge && typeof window.AndroidBridge.connectToHost === 'function') {
+      window.AndroidBridge.connectToHost(ip, 9001);
+    }
+  }
+
   function sendMessage(payload) {
     const trimmed = payload.trim();
     if (!trimmed) {
@@ -69,40 +108,28 @@
 
     const packet = createPacket(state.nodeId, state.destinationId, trimmed, 10);
 
-    state.messages.push({
-      packet: packet,
-      status: 'sent',
-      isOutbound: true,
-    });
-
-    addLog('INFO', `[Created Packet] id=${packet.messageId.substring(0, 8)}... src=${packet.sourceId} dst=${packet.destinationId} ttl=${packet.ttl} payload="${packet.payload}"`);
-    addLog('ROUTE', `[Route Lookup] Target ${packet.destinationId} queued (P0: local simulation; P1: dispatched via native transport)`);
-
-    // Forward to Android native bridge if available
+    // Forward to Android native bridge over direct socket
+    let sentSuccess = false;
     if (window.AndroidBridge && typeof window.AndroidBridge.sendPacket === 'function') {
       try {
-        window.AndroidBridge.sendPacket(JSON.stringify(packet));
-        addLog('ROUTE', `[Bridge] Packet handed to Android Direct Transport`);
+        sentSuccess = window.AndroidBridge.sendPacket(JSON.stringify(packet));
       } catch (e) {
-        addLog('ERROR', `[Bridge Error] Failed to send over native bridge: ${e}`);
+        addLog('ERROR', `Bridge send error: ${e}`);
       }
     }
 
-    renderMessages();
-  }
-
-  function simulateInboundPacket() {
-    const sender = state.destinationId === 'Node-B' ? 'Node-B' : 'Node-C';
-    const packet = createPacket(sender, state.nodeId, `Echo / Test response from ${sender}`, 8);
-    packet.hopCount = 2; // 2 intermediate hops
-
     state.messages.push({
       packet: packet,
-      status: 'delivered',
-      isOutbound: false,
+      status: sentSuccess ? 'sent' : 'queued',
+      isOutbound: true,
     });
 
-    addLog('INFO', `[Delivered Inbound] id=${packet.messageId.substring(0, 8)}... from=${packet.sourceId} hops=${packet.hopCount} payload="${packet.payload}"`);
+    if (sentSuccess) {
+      addLog('INFO', `[TX] Sent packet ${packet.messageId.substring(0, 8)}... to ${packet.destinationId} via Direct Socket`);
+    } else {
+      addLog('WARN', `[TX Queued] Peer not connected. Packet stored locally.`);
+    }
+
     renderMessages();
   }
 
@@ -111,68 +138,124 @@
     const container = document.getElementById('header-area');
     if (!container) return;
 
-    let nodeHtml = '';
-    if (state.isEditingNodeId) {
-      nodeHtml = `
-        <div class="node-edit-box">
-          <input type="text" id="node-id-input" class="node-input" value="${state.nodeId}" maxlength="12" />
-          <button id="btn-save-node" class="btn-small save-btn">Save</button>
-        </div>
-      `;
-    } else {
-      nodeHtml = `
-        <div class="node-display" id="node-display-box" title="Click to rename local node">
-          <span class="node-label">LOCAL NODE:</span>
-          <span class="node-id-val">${state.nodeId}</span>
-          <span class="edit-hint">✏️</span>
-        </div>
-      `;
-    }
-
     container.innerHTML = `
       <div class="header-top">
         <div class="logo-section">
           <div class="logo-icon">📡</div>
           <div>
             <h1 class="app-title">MeshLink</h1>
-            <p class="app-subtitle">Offline Multi-Hop Mesh Network</p>
+            <p class="app-subtitle">Physical Offline Mesh Network</p>
           </div>
         </div>
-        <div class="node-badge-container">${nodeHtml}</div>
+        <div class="node-badge-container">
+          <div class="node-display" id="node-display-box" title="Current Local Node">
+            <span class="node-label">LOCAL NODE:</span>
+            <span class="node-id-val">${state.nodeId}</span>
+          </div>
+        </div>
       </div>
       <div class="status-bar">
         <div class="status-indicator">
-          <span class="status-dot"></span>
+          <span class="status-dot ${state.isConnected ? 'connected' : 'disconnected'}"></span>
           <span class="status-text">${state.connectionStatus}</span>
         </div>
-        <div class="milestone-badge">P0 MVP</div>
+        <div class="milestone-badge">P1 DIRECT P2P</div>
       </div>
     `;
+  }
 
-    if (state.isEditingNodeId) {
-      const input = document.getElementById('node-id-input');
-      const btn = document.getElementById('btn-save-node');
-      input?.focus();
-      btn?.addEventListener('click', () => {
-        const val = input.value.trim().toUpperCase();
-        if (val) {
-          const old = state.nodeId;
-          state.nodeId = val;
-          addLog('INFO', `Local Node changed: ${old} → ${state.nodeId}`);
-        }
-        state.isEditingNodeId = false;
-        renderHeader();
-        renderPresets();
-      });
-      input?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') btn?.click();
-      });
+  function renderP2PControl() {
+    const container = document.getElementById('p2p-control-area');
+    if (!container) return;
+
+    const isHost = state.role === 'HOST';
+
+    let controlsHtml = '';
+    if (isHost) {
+      controlsHtml = `
+        <div class="p2p-host-panel">
+          <span class="p2p-ip-badge">Hosting on: <strong>${state.localIp}:9001</strong></span>
+          <span class="p2p-hint">${state.isConnected ? '🟢 Peer connected!' : 'Waiting for Phone B to connect...'}</span>
+        </div>
+      `;
     } else {
-      document.getElementById('node-display-box')?.addEventListener('click', () => {
-        state.isEditingNodeId = true;
-        renderHeader();
-      });
+      if (state.isConnected) {
+        controlsHtml = `
+          <div class="p2p-client-panel">
+            <div class="p2p-host-panel" style="background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4);">
+              <span class="p2p-ip-badge">🟢 Linked with Host (<strong>${state.hostIpInput}:9001</strong>)</span>
+              <button id="btn-disconnect-host" class="btn-connect" style="background: #ef4444; padding: 4px 10px;">Disconnect</button>
+            </div>
+          </div>
+        `;
+      } else {
+        controlsHtml = `
+          <div class="p2p-client-panel">
+            <div class="ip-input-row">
+              <input type="text" id="host-ip-field" class="ip-input" value="${state.hostIpInput}" placeholder="Host IP (e.g. 10.168.213.199)" />
+              <button id="btn-connect-host" class="btn-connect">Connect</button>
+            </div>
+            <div class="quick-ips">
+              <span class="quick-ip-label">Quick IP:</span>
+              <button class="quick-ip-btn" data-ip="10.168.213.199">Hotspot (10.168...)</button>
+              <button class="quick-ip-btn" data-ip="127.0.0.1">ADB USB (127.0.0.1)</button>
+              <button class="quick-ip-btn" data-ip="192.168.49.1">Wi-Fi Direct (192.168.49.1)</button>
+            </div>
+          </div>
+        `;
+      }
     }
+
+    container.innerHTML = `
+      <div class="role-selector-bar">
+        <span class="role-label">Device Role:</span>
+        <button id="role-host-btn" class="role-btn ${isHost ? 'active-host' : ''}">
+          🟢 Node-A (Host)
+        </button>
+        <button id="role-client-btn" class="role-btn ${!isHost ? 'active-client' : ''}">
+          🔵 Node-B (Client)
+        </button>
+      </div>
+      <div class="p2p-controls-body">${controlsHtml}</div>
+    `;
+
+    // Role toggle listeners
+    document.getElementById('role-host-btn')?.addEventListener('click', () => switchRole('HOST'));
+    document.getElementById('role-client-btn')?.addEventListener('click', () => switchRole('CLIENT'));
+
+    // Disconnect button listener
+    document.getElementById('btn-disconnect-host')?.addEventListener('click', () => {
+      if (window.AndroidBridge && typeof window.AndroidBridge.disconnect === 'function') {
+        window.AndroidBridge.disconnect();
+      }
+      state.isConnected = false;
+      renderHeader();
+      renderP2PControl();
+    });
+
+    // Connect button listener
+    const connectBtn = document.getElementById('btn-connect-host');
+    const ipField = document.getElementById('host-ip-field');
+
+    ipField?.addEventListener('input', (e) => {
+      state.hostIpInput = e.target.value.trim();
+    });
+
+    connectBtn?.addEventListener('click', () => {
+      connectToHost();
+    });
+
+    // Quick IP buttons
+    container.querySelectorAll('.quick-ip-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const ip = btn.getAttribute('data-ip');
+        if (ip) {
+          state.hostIpInput = ip;
+          if (ipField) ipField.value = ip;
+          connectToHost();
+        }
+      });
+    });
   }
 
   function renderPresets() {
@@ -229,7 +312,7 @@
         <div class="message-list-empty">
           <div class="empty-icon">💬</div>
           <p class="empty-text">No mesh packets transmitted yet.</p>
-          <p class="empty-subtext">Compose a message below to test packet generation.</p>
+          <p class="empty-subtext">Send a message to test real-time direct delivery.</p>
         </div>
       `;
       return;
@@ -310,17 +393,12 @@
 
   function setupConsoleControls() {
     const clearBtn = document.getElementById('btn-clear-logs');
-    const simBtn = document.getElementById('btn-sim-inbound');
     const toggleBtn = document.getElementById('btn-toggle-console');
     const consoleEl = document.getElementById('diagnostic-console');
 
     clearBtn?.addEventListener('click', () => {
       state.logs = [];
       renderLogs();
-    });
-
-    simBtn?.addEventListener('click', () => {
-      simulateInboundPacket();
     });
 
     toggleBtn?.addEventListener('click', () => {
@@ -340,7 +418,7 @@
       .replace(/"/g, '&quot;');
   }
 
-  // --- Global Native Bridge Callback ---
+  // --- Global Native Bridge Callbacks ---
   window.onNativePacketReceived = function (packetJson) {
     try {
       const packet = JSON.parse(packetJson);
@@ -349,29 +427,54 @@
         status: 'delivered',
         isOutbound: false,
       });
-      addLog('INFO', `[Native Link] Inbound packet delivered: ${packet.messageId.substring(0, 8)}... from ${packet.sourceId}`);
+      addLog('INFO', `[RX Received] Message from ${packet.sourceId}: "${packet.payload}"`);
       renderMessages();
     } catch (e) {
       addLog('ERROR', `Failed to parse native packet: ${e}`);
     }
   };
 
+  window.onNativeStatusChanged = function (statusText, connected) {
+    state.connectionStatus = statusText;
+    state.isConnected = !!connected;
+    renderHeader();
+    renderP2PControl();
+  };
+
+  window.onNativeLog = function (level, message) {
+    addLog(level, message);
+  };
+
   // --- Bootstrap ---
   window.addEventListener('DOMContentLoaded', () => {
+    // Read initial Node ID & Role from Android Bridge if available
+    if (window.AndroidBridge) {
+      try {
+        const nativeNodeId = window.AndroidBridge.getNodeId();
+        const nativeRole = window.AndroidBridge.getRole();
+        const nativeIp = window.AndroidBridge.getLocalIp();
+        if (nativeNodeId) state.nodeId = nativeNodeId;
+        if (nativeRole) state.role = nativeRole;
+        if (nativeIp) state.localIp = nativeIp;
+        state.destinationId = (state.nodeId === 'Node-A') ? 'Node-B' : 'Node-A';
+      } catch (e) {
+        console.error('Failed reading native config', e);
+      }
+    }
+
     renderHeader();
+    renderP2PControl();
     renderPresets();
     renderMessages();
     renderLogs();
     setupInputBar();
     setupConsoleControls();
 
-    addLog('INFO', `MeshLink Mobile initialized for Node: ${state.nodeId}`);
-    addLog('INFO', `Diagnostic engine ready. Initial state: Standalone offline.`);
-
-    if (window.AndroidBridge) {
-      addLog('INFO', 'Android Native Bridge attached.');
-      state.connectionStatus = 'Android Native Bridge Connected';
-      renderHeader();
+    addLog('INFO', `MeshLink Mobile started as ${state.nodeId} (${state.role} Mode)`);
+    if (state.role === 'HOST') {
+      addLog('INFO', `Local IP: ${state.localIp}. Server listening on port 9001.`);
+    } else {
+      addLog('INFO', `Local IP: ${state.localIp}. Tap Connect to link with Host.`);
     }
   });
 })();

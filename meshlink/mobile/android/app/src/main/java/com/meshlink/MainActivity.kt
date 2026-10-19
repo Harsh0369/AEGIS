@@ -2,6 +2,7 @@ package com.meshlink
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -16,7 +17,9 @@ import com.meshlink.transport.AndroidDirectTransport
  * MainActivity
  *
  * Entry point for the MeshLink Android mobile app.
- * Hosts the WebView for the React-based mesh UI and manages Android native permissions.
+ * Automatically identifies device model to assign distinct node roles:
+ * - Vivo (I2404): Defaults to Node-A (Host mode)
+ * - Samsung (SM-M075F): Defaults to Node-B (Client mode)
  */
 class MainActivity : AppCompatActivity() {
 
@@ -25,13 +28,35 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bridge: MeshBridge
 
     private val PERMISSION_REQUEST_CODE = 1001
+    private val PREFS_NAME = "MeshLinkPrefs"
+    private val KEY_NODE_ID = "saved_node_id"
+    private val KEY_ROLE = "saved_role"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize Android Native Transport
-        transport = AndroidDirectTransport("Node-A")
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val model = Build.MODEL.uppercase()
+        val brand = Build.BRAND.uppercase()
+        val manufacturer = Build.MANUFACTURER.uppercase()
+        val deviceDesc = "$model $brand $manufacturer"
+
+        // Auto-assign distinct Node ID and Role based on hardware model
+        val defaultNodeId = if (deviceDesc.contains("I2404") || deviceDesc.contains("VIVO")) {
+            "Node-A"
+        } else if (deviceDesc.contains("M07") || deviceDesc.contains("SAMSUNG")) {
+            "Node-B"
+        } else {
+            "Node-" + Build.MODEL.takeLast(4).uppercase()
+        }
+
+        val defaultRole = if (defaultNodeId == "Node-A") "HOST" else "CLIENT"
+        val savedNodeId = prefs.getString(KEY_NODE_ID, defaultNodeId) ?: defaultNodeId
+        val savedRole = prefs.getString(KEY_ROLE, defaultRole) ?: defaultRole
+
+        val isHost = (savedRole == "HOST")
+        transport = AndroidDirectTransport(savedNodeId, isHost)
 
         // Initialize WebView
         webView = WebView(this)
@@ -42,21 +67,42 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.allowFileAccess = true
         settings.allowContentAccess = true
+        settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        webView.clearCache(true)
+        WebView.setWebContentsDebuggingEnabled(true)
 
         // Attach JavaScript Interface Bridge
         bridge = MeshBridge(this, webView, transport)
         webView.addJavascriptInterface(bridge, "AndroidBridge")
 
-        // Wire native transport inbound events to JS UI
+        // Wire transport callbacks to JS UI
         transport.setOnPacketReceived { packetJson ->
             bridge.notifyPacketReceived(packetJson)
         }
+        transport.setOnStatusChanged { statusText, connected ->
+            bridge.notifyStatusChanged(statusText, connected)
+        }
+        transport.setOnLog { level, message ->
+            bridge.notifyLog(level, message)
+        }
 
-        // Request necessary permissions on launch
+        // Request permissions
         requestPermissionsIfNeeded()
 
-        // Load self-contained offline React UI from assets
+        // If Host, start listening immediately. If Client, auto-connect to Host.
+        if (isHost) {
+            transport.startHost(transport.DEFAULT_PORT)
+        } else {
+            transport.connectToHost("10.168.213.199", transport.DEFAULT_PORT)
+        }
+
+        // Load self-contained offline React UI
         webView.loadUrl("file:///android_asset/web/index.html")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        transport.stop()
     }
 
     private fun requestPermissionsIfNeeded() {

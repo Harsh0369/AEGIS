@@ -26,7 +26,8 @@
     messages: [],
     logs: [],
     isEditingNodeId: false,
-    isConsoleExpanded: true,
+    isP2pExpanded: true,
+    isConsoleExpanded: false,
   };
 
   const PRESET_NODES = ['Node-A', 'Node-B', 'Node-C', 'Node-D', 'Node-E'];
@@ -296,23 +297,40 @@
     }
 
     container.innerHTML = `
-      <div class="p2p-tabs-bar">
-        <button id="tab-btn-p2p" class="p2p-tab-btn ${isP2pTab ? 'active' : ''}">
-          ⚡ Wi-Fi Direct (P2P - No Hotspot)
-        </button>
-        <button id="tab-btn-lan" class="p2p-tab-btn ${!isP2pTab ? 'active' : ''}">
-          🌐 Wi-Fi LAN / Hotspot
-        </button>
+      <div class="p2p-toggle-bar" id="p2p-toggle-btn">
+        <div class="p2p-toggle-title">
+          <span>${state.isConnected ? '🟢 Direct Link Active' : '🟡 P2P Connection Setup'}</span>
+          <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${state.isConnected ? (state.role === 'HOST' ? 'Host on :' + (state.localIp || '9001') : 'Linked') : (state.activeTab === 'wifip2p' ? 'Wi-Fi Direct' : 'LAN / Hotspot')}</span>
+        </div>
+        <span class="p2p-toggle-icon">${state.isP2pExpanded ? '▲' : '▼'}</span>
       </div>
-      <div class="p2p-controls-body">${tabBodyHtml}</div>
+      <div class="p2p-controls-body ${state.isP2pExpanded ? '' : 'collapsed'}">
+        <div class="p2p-tabs-bar">
+          <button id="tab-btn-p2p" class="p2p-tab-btn ${isP2pTab ? 'active' : ''}">
+            ⚡ Direct P2P (No Hotspot)
+          </button>
+          <button id="tab-btn-lan" class="p2p-tab-btn ${!isP2pTab ? 'active' : ''}">
+            🌐 Wi-Fi LAN / Hotspot
+          </button>
+        </div>
+        ${tabBodyHtml}
+      </div>
     `;
 
+    // Collapsible toggle
+    document.getElementById('p2p-toggle-btn')?.addEventListener('click', () => {
+      state.isP2pExpanded = !state.isP2pExpanded;
+      renderP2PControl();
+    });
+
     // Tab buttons
-    document.getElementById('tab-btn-p2p')?.addEventListener('click', () => {
+    document.getElementById('tab-btn-p2p')?.addEventListener('click', (e) => {
+      e.stopPropagation();
       state.activeTab = 'wifip2p';
       renderP2PControl();
     });
-    document.getElementById('tab-btn-lan')?.addEventListener('click', () => {
+    document.getElementById('tab-btn-lan')?.addEventListener('click', (e) => {
+      e.stopPropagation();
       state.activeTab = 'lan';
       renderP2PControl();
     });
@@ -381,26 +399,17 @@
           class="preset-btn ${isSelected ? 'selected' : ''} ${isSelf ? 'self' : ''}"
           data-node="${node}"
           ${isSelf ? 'disabled' : ''}
-        >${node} ${isSelf ? '(Self)' : ''}</button>
+        >${node}</button>
       `;
     }).join('');
 
     container.innerHTML = `
-      <div class="dest-input-row">
-        <label class="dest-label">Target Destination:</label>
-        <input type="text" id="dest-input-field" class="dest-input" value="${state.destinationId}" placeholder="e.g. Node-B" maxlength="16" />
+      <div class="dest-label-group">
+        <span class="dest-label">To:</span>
+        <span class="dest-target-badge">${state.destinationId}</span>
       </div>
-      <div class="dest-presets">
-        <span class="presets-label">Topology Quick-Pick:</span>
-        <div class="preset-buttons">${presetButtonsHtml}</div>
-      </div>
+      <div class="dest-presets">${presetButtonsHtml}</div>
     `;
-
-    const destInput = document.getElementById('dest-input-field');
-    destInput?.addEventListener('input', (e) => {
-      state.destinationId = e.target.value.trim().toUpperCase();
-      renderPresets();
-    });
 
     container.querySelectorAll('.preset-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -506,19 +515,25 @@
     const clearBtn = document.getElementById('btn-clear-logs');
     const toggleBtn = document.getElementById('btn-toggle-console');
     const consoleEl = document.getElementById('diagnostic-console');
+    const headerToggle = document.getElementById('console-header-toggle');
 
-    clearBtn?.addEventListener('click', () => {
+    clearBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
       state.logs = [];
       renderLogs();
     });
 
-    toggleBtn?.addEventListener('click', () => {
+    function toggleConsole(e) {
+      if (e) e.stopPropagation();
       state.isConsoleExpanded = !state.isConsoleExpanded;
       if (consoleEl) {
         consoleEl.className = `diagnostic-console ${state.isConsoleExpanded ? 'expanded' : 'collapsed'}`;
       }
-      toggleBtn.textContent = state.isConsoleExpanded ? '▼' : '▲';
-    });
+      if (toggleBtn) toggleBtn.textContent = state.isConsoleExpanded ? '▼' : '▲';
+    }
+
+    toggleBtn?.addEventListener('click', toggleConsole);
+    headerToggle?.addEventListener('click', toggleConsole);
   }
 
   function escapeHtml(str) {

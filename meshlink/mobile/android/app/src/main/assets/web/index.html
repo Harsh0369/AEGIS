@@ -2,24 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>MeshLink Mobile</title>
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <div id="root">
     <div class="meshlink-app">
       <!-- Header Area -->
-      <div id="header-area" class="header-container"></div>
+      <header id="header-area" class="header-container"></header>
 
-      <!-- P2P Direct Link Control Area -->
-      <div id="p2p-control-area" class="p2p-control-container"></div>
+      <!-- P2P Direct Link Control Area (Collapsible) -->
+      <section id="p2p-control-area" class="p2p-control-container"></section>
 
       <!-- Destination Selection Area -->
-      <div id="dest-area" class="dest-container"></div>
+      <section id="dest-area" class="dest-container"></section>
 
       <!-- Main Chat Area -->
-      <div class="main-content-area">
+      <main class="main-content-area">
         <div class="chat-section">
           <div id="messages-area" class="message-list-container"></div>
 
@@ -29,7 +29,7 @@
               type="text"
               id="msg-input"
               class="message-input-field"
-              placeholder="Compose offline mesh packet..."
+              placeholder="Type offline mesh packet..."
               autocomplete="off"
             />
             <button id="send-btn" class="send-button" disabled>
@@ -39,12 +39,12 @@
           </div>
         </div>
 
-        <!-- Live Diagnostic Console -->
-        <div id="diagnostic-console" class="diagnostic-console expanded">
-          <div class="console-header">
+        <!-- Live Diagnostic Console (Collapsed by default!) -->
+        <aside id="diagnostic-console" class="diagnostic-console collapsed">
+          <div class="console-header" id="console-header-toggle">
             <div class="console-title-group">
               <span class="console-icon">⚙️</span>
-              <span class="console-title">Diagnostic Packet Log</span>
+              <span class="console-title">Diagnostic Logs</span>
               <span id="log-count" class="log-count">(0)</span>
             </div>
             <div class="console-controls">
@@ -52,16 +52,16 @@
                 🧹 Clear
               </button>
               <button id="btn-toggle-console" class="console-btn toggle-btn">
-                ▼
+                ▲
               </button>
             </div>
           </div>
           <div id="console-body" class="console-body"></div>
-        </div>
-      </div>
+        </aside>
+      </main>
     </div>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

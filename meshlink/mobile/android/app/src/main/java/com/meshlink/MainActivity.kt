@@ -6,12 +6,15 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.meshlink.transport.AndroidDirectTransport
+import com.meshlink.transport.WifiDirectManager
 
 /**
  * MainActivity
@@ -20,12 +23,16 @@ import com.meshlink.transport.AndroidDirectTransport
  * Automatically identifies device model to assign distinct node roles:
  * - Vivo (I2404): Defaults to Node-A (Host mode)
  * - Samsung (SM-M075F): Defaults to Node-B (Client mode)
+ *
+ * Integrated with native Wi-Fi Direct (P2P) for automated discovery,
+ * pairing, and direct socket links without requiring a hotspot, PC, or router.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var transport: AndroidDirectTransport
     private lateinit var bridge: MeshBridge
+    private lateinit var wifiDirectManager: WifiDirectManager
 
     private val PERMISSION_REQUEST_CODE = 1001
     private val PREFS_NAME = "MeshLinkPrefs"
@@ -71,6 +78,15 @@ class MainActivity : AppCompatActivity() {
         webView.clearCache(true)
         WebView.setWebContentsDebuggingEnabled(true)
 
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                consoleMessage?.let {
+                    android.util.Log.d("WebViewConsole", "[${it.messageLevel()}] ${it.message()} -- line ${it.lineNumber()}")
+                }
+                return super.onConsoleMessage(consoleMessage)
+            }
+        }
+
         // Attach JavaScript Interface Bridge
         bridge = MeshBridge(this, webView, transport)
         webView.addJavascriptInterface(bridge, "AndroidBridge")
@@ -86,7 +102,23 @@ class MainActivity : AppCompatActivity() {
             bridge.notifyLog(level, message)
         }
 
-        // Request permissions
+        // Initialize native Wi-Fi Direct Manager
+        wifiDirectManager = WifiDirectManager(
+            context = this,
+            onLog = { level, msg -> bridge.notifyLog(level, msg) },
+            onStatusChanged = { statusText, connected -> bridge.notifyStatusChanged(statusText, connected) },
+            onPeersUpdated = { peers -> bridge.notifyPeersUpdated(peers) },
+            onConnectionReady = { isGroupOwner, hostIp ->
+                if (isGroupOwner) {
+                    transport.startHost(transport.DEFAULT_PORT)
+                } else {
+                    transport.connectToHost(hostIp, transport.DEFAULT_PORT)
+                }
+            }
+        )
+        bridge.setWifiDirectManager(wifiDirectManager)
+
+        // Request runtime permissions
         requestPermissionsIfNeeded()
 
         // If Host, start listening immediately. If Client, auto-connect to Host.
@@ -102,6 +134,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        wifiDirectManager.unregisterReceiver()
         transport.stop()
     }
 
@@ -110,12 +143,9 @@ class MainActivity : AppCompatActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
-            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-            permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-        } else {
-            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
 
         val needed = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED

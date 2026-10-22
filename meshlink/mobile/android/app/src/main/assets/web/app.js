@@ -19,7 +19,10 @@
     connectionStatus: 'Initializing...',
     isConnected: false,
     localIp: '127.0.0.1',
-    hostIpInput: '10.168.213.199', // Default to Phone 1's IP
+    hostIpInput: '192.168.49.1', // Default to Wi-Fi Direct standard IP
+    activeTab: 'wifip2p', // 'wifip2p' or 'lan'
+    discoveredPeers: [],
+    isScanning: false,
     messages: [],
     logs: [],
     isEditingNodeId: false,
@@ -92,6 +95,29 @@
     addLog('INFO', `Initiating direct socket connection to ${ip}:9001...`);
     if (window.AndroidBridge && typeof window.AndroidBridge.connectToHost === 'function') {
       window.AndroidBridge.connectToHost(ip, 9001);
+    }
+  }
+
+  function startPeerDiscovery() {
+    state.isScanning = true;
+    addLog('INFO', 'Scanning for nearby Wi-Fi Direct devices...');
+    if (window.AndroidBridge && typeof window.AndroidBridge.discoverPeers === 'function') {
+      window.AndroidBridge.discoverPeers();
+    }
+    renderP2PControl();
+  }
+
+  function createDirectGroup() {
+    addLog('INFO', 'Creating autonomous Wi-Fi Direct Group (becoming Host)...');
+    if (window.AndroidBridge && typeof window.AndroidBridge.createDirectGroup === 'function') {
+      window.AndroidBridge.createDirectGroup();
+    }
+  }
+
+  function connectToPeer(deviceAddress, name) {
+    addLog('INFO', `Initiating Wi-Fi Direct pairing with ${name} (${deviceAddress})...`);
+    if (window.AndroidBridge && typeof window.AndroidBridge.connectToPeer === 'function') {
+      window.AndroidBridge.connectToPeer(deviceAddress);
     }
   }
 
@@ -169,55 +195,140 @@
     if (!container) return;
 
     const isHost = state.role === 'HOST';
+    const isP2pTab = state.activeTab === 'wifip2p';
 
-    let controlsHtml = '';
-    if (isHost) {
-      controlsHtml = `
-        <div class="p2p-host-panel">
-          <span class="p2p-ip-badge">Hosting on: <strong>${state.localIp}:9001</strong></span>
-          <span class="p2p-hint">${state.isConnected ? '🟢 Peer connected!' : 'Waiting for Phone B to connect...'}</span>
-        </div>
-      `;
-    } else {
-      if (state.isConnected) {
-        controlsHtml = `
-          <div class="p2p-client-panel">
-            <div class="p2p-host-panel" style="background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4);">
-              <span class="p2p-ip-badge">🟢 Linked with Host (<strong>${state.hostIpInput}:9001</strong>)</span>
-              <button id="btn-disconnect-host" class="btn-connect" style="background: #ef4444; padding: 4px 10px;">Disconnect</button>
-            </div>
+    let tabBodyHtml = '';
+
+    if (isP2pTab) {
+      // Tab 1: Wi-Fi Direct P2P (No Hotspot / Router required)
+      let peersHtml = '';
+      if (state.discoveredPeers.length === 0) {
+        peersHtml = `
+          <div class="peer-empty-state">
+            ${state.isScanning 
+              ? '⏳ Searching for nearby Wi-Fi Direct phones...' 
+              : '📡 Tap "Scan" on both phones to link directly without a hotspot, PC, or router.'}
           </div>
         `;
       } else {
-        controlsHtml = `
-          <div class="p2p-client-panel">
-            <div class="ip-input-row">
-              <input type="text" id="host-ip-field" class="ip-input" value="${state.hostIpInput}" placeholder="Host IP (e.g. 10.168.213.199)" />
-              <button id="btn-connect-host" class="btn-connect">Connect</button>
-            </div>
-            <div class="quick-ips">
-              <span class="quick-ip-label">Quick IP:</span>
-              <button class="quick-ip-btn" data-ip="10.168.213.199">Hotspot (10.168...)</button>
-              <button class="quick-ip-btn" data-ip="127.0.0.1">ADB USB (127.0.0.1)</button>
-              <button class="quick-ip-btn" data-ip="192.168.49.1">Wi-Fi Direct (192.168.49.1)</button>
-            </div>
+        peersHtml = `
+          <div class="peer-list-container">
+            ${state.discoveredPeers.map(p => `
+              <div class="peer-card">
+                <div class="peer-card-left">
+                  <span class="peer-icon">📱</span>
+                  <div style="min-width: 0;">
+                    <div class="peer-name">${escapeHtml(p.name)}</div>
+                    <div class="peer-meta">${escapeHtml(p.address)} • ${escapeHtml(p.status)}</div>
+                  </div>
+                </div>
+                <button class="btn-peer-connect" data-mac="${escapeHtml(p.address)}" data-name="${escapeHtml(p.name)}">
+                  ⚡ Pair
+                </button>
+              </div>
+            `).join('')}
           </div>
         `;
       }
+
+      tabBodyHtml = `
+        <div class="p2p-action-row">
+          <button id="btn-p2p-scan" class="btn-p2p-scan">
+            ${state.isScanning ? '⏳ Scanning...' : '🔍 Scan Nearby Devices'}
+          </button>
+          <button id="btn-p2p-group" class="btn-p2p-group">
+            👑 Create Group
+          </button>
+        </div>
+        ${peersHtml}
+      `;
+    } else {
+      // Tab 2: Manual IP / Wi-Fi LAN / Hotspot
+      let lanControlsHtml = '';
+      if (isHost) {
+        lanControlsHtml = `
+          <div class="p2p-host-panel">
+            <span class="p2p-ip-badge">Hosting on: <strong>${state.localIp}:9001</strong></span>
+            <span class="p2p-hint">${state.isConnected ? '🟢 Peer connected!' : 'Waiting for Client to connect...'}</span>
+          </div>
+        `;
+      } else {
+        if (state.isConnected) {
+          lanControlsHtml = `
+            <div class="p2p-client-panel">
+              <div class="p2p-host-panel" style="background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4);">
+                <span class="p2p-ip-badge">🟢 Linked with Host (<strong>${state.hostIpInput}:9001</strong>)</span>
+                <button id="btn-disconnect-host" class="btn-connect" style="background: #ef4444; padding: 4px 10px;">Disconnect</button>
+              </div>
+            </div>
+          `;
+        } else {
+          lanControlsHtml = `
+            <div class="p2p-client-panel">
+              <div class="ip-input-row">
+                <input type="text" id="host-ip-field" class="ip-input" value="${state.hostIpInput}" placeholder="Host IP (e.g. 192.168.49.1)" />
+                <button id="btn-connect-host" class="btn-connect">Connect</button>
+              </div>
+              <div class="quick-ips">
+                <span class="quick-ip-label">Quick:</span>
+                <button class="quick-ip-btn" data-ip="192.168.49.1">P2P (192.168.49.1)</button>
+                <button class="quick-ip-btn" data-ip="192.168.43.1">Hotspot (.43.1)</button>
+                <button class="quick-ip-btn" data-ip="10.168.213.199">Wi-Fi LAN</button>
+                <button class="quick-ip-btn" data-ip="127.0.0.1">USB (127.0.0.1)</button>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      tabBodyHtml = `
+        <div class="role-selector-bar" style="margin-bottom: 8px;">
+          <span class="role-label">Role:</span>
+          <button id="role-host-btn" class="role-btn ${isHost ? 'active-host' : ''}">
+            🟢 Node-A (Host)
+          </button>
+          <button id="role-client-btn" class="role-btn ${!isHost ? 'active-client' : ''}">
+            🔵 Node-B (Client)
+          </button>
+        </div>
+        ${lanControlsHtml}
+      `;
     }
 
     container.innerHTML = `
-      <div class="role-selector-bar">
-        <span class="role-label">Device Role:</span>
-        <button id="role-host-btn" class="role-btn ${isHost ? 'active-host' : ''}">
-          🟢 Node-A (Host)
+      <div class="p2p-tabs-bar">
+        <button id="tab-btn-p2p" class="p2p-tab-btn ${isP2pTab ? 'active' : ''}">
+          ⚡ Wi-Fi Direct (P2P - No Hotspot)
         </button>
-        <button id="role-client-btn" class="role-btn ${!isHost ? 'active-client' : ''}">
-          🔵 Node-B (Client)
+        <button id="tab-btn-lan" class="p2p-tab-btn ${!isP2pTab ? 'active' : ''}">
+          🌐 Wi-Fi LAN / Hotspot
         </button>
       </div>
-      <div class="p2p-controls-body">${controlsHtml}</div>
+      <div class="p2p-controls-body">${tabBodyHtml}</div>
     `;
+
+    // Tab buttons
+    document.getElementById('tab-btn-p2p')?.addEventListener('click', () => {
+      state.activeTab = 'wifip2p';
+      renderP2PControl();
+    });
+    document.getElementById('tab-btn-lan')?.addEventListener('click', () => {
+      state.activeTab = 'lan';
+      renderP2PControl();
+    });
+
+    // P2P Scan & Group buttons
+    document.getElementById('btn-p2p-scan')?.addEventListener('click', () => startPeerDiscovery());
+    document.getElementById('btn-p2p-group')?.addEventListener('click', () => createDirectGroup());
+
+    // Pair with discovered peer buttons
+    container.querySelectorAll('.btn-peer-connect').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mac = btn.getAttribute('data-mac');
+        const name = btn.getAttribute('data-name');
+        if (mac) connectToPeer(mac, name || 'Peer');
+      });
+    });
 
     // Role toggle listeners
     document.getElementById('role-host-btn')?.addEventListener('click', () => switchRole('HOST'));
@@ -445,6 +556,17 @@
     addLog(level, message);
   };
 
+  window.onNativePeersUpdated = function (peersJson) {
+    try {
+      state.discoveredPeers = typeof peersJson === 'string' ? JSON.parse(peersJson) : peersJson;
+      state.isScanning = false;
+      addLog('INFO', `Discovered ${state.discoveredPeers.length} nearby Wi-Fi Direct device(s)`);
+      renderP2PControl();
+    } catch (e) {
+      addLog('ERROR', `Failed parsing peer list: ${e}`);
+    }
+  };
+
   // --- Bootstrap ---
   window.addEventListener('DOMContentLoaded', () => {
     // Read initial Node ID & Role from Android Bridge if available
@@ -453,9 +575,12 @@
         const nativeNodeId = window.AndroidBridge.getNodeId();
         const nativeRole = window.AndroidBridge.getRole();
         const nativeIp = window.AndroidBridge.getLocalIp();
+        const gatewayIp = typeof window.AndroidBridge.getGatewayIp === 'function' ? window.AndroidBridge.getGatewayIp() : null;
+
         if (nativeNodeId) state.nodeId = nativeNodeId;
         if (nativeRole) state.role = nativeRole;
         if (nativeIp) state.localIp = nativeIp;
+        if (gatewayIp && gatewayIp !== '127.0.0.1') state.hostIpInput = gatewayIp;
         state.destinationId = (state.nodeId === 'Node-A') ? 'Node-B' : 'Node-A';
       } catch (e) {
         console.error('Failed reading native config', e);

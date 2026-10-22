@@ -33,6 +33,7 @@ class AndroidDirectTransport(
     private var dataOutputStream: DataOutputStream? = null
     private var isRunning = AtomicBoolean(false)
     private var isConnected = AtomicBoolean(false)
+    var lastHostIp: String = "10.168.213.199"
 
     private var onPacketCallback: ((String) -> Unit)? = null
     private var onStatusCallback: ((String, Boolean) -> Unit)? = null
@@ -94,6 +95,7 @@ class AndroidDirectTransport(
         stop()
         isHost = false
         isRunning.set(true)
+        lastHostIp = hostIp
 
         Thread {
             while (isRunning.get() && !isConnected.get()) {
@@ -181,6 +183,15 @@ class AndroidDirectTransport(
                 closeActiveSocket()
                 onStatusCallback?.invoke("🔴 Disconnected", false)
                 log("WARN", "Direct connection closed.")
+                if (!isHost && isRunning.get()) {
+                    log("INFO", "Client disconnected. Auto-reconnecting in 3s...")
+                    try {
+                        Thread.sleep(3000)
+                        if (isRunning.get() && !isConnected.get()) {
+                            connectToHost(lastHostIp, DEFAULT_PORT)
+                        }
+                    } catch (_: InterruptedException) {}
+                }
             }
         }.start()
     }

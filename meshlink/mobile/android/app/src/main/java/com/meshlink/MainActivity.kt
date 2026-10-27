@@ -65,9 +65,28 @@ class MainActivity : AppCompatActivity() {
         val isHost = (savedRole == "HOST")
         transport = AndroidDirectTransport(savedNodeId, isHost)
 
-        // Initialize WebView
+        // Set status bar & nav bar background styling
+        window.statusBarColor = android.graphics.Color.parseColor("#0a0e17")
+        window.navigationBarColor = android.graphics.Color.parseColor("#0a0e17")
+
+        // Initialize WebView with safe insets container
         webView = WebView(this)
-        setContentView(webView)
+        val container = android.widget.FrameLayout(this).apply {
+            setBackgroundColor(android.graphics.Color.parseColor("#0a0e17"))
+            addView(
+                webView,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(container) { v, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, systemBars.top, 0, systemBars.bottom)
+            insets
+        }
+        setContentView(container)
 
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true

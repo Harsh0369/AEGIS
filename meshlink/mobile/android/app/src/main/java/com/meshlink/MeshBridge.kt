@@ -57,7 +57,9 @@ class MeshBridge(
     fun setRole(role: String) {
         val upper = role.trim().uppercase()
         prefs.edit().putString(KEY_ROLE, upper).apply()
-        if (upper == "HOST") {
+        val isHost = (upper == "HOST")
+        wifiDirectManager?.isHostConfigured = isHost
+        if (isHost) {
             transport.startHost(transport.DEFAULT_PORT)
         } else {
             transport.stop()

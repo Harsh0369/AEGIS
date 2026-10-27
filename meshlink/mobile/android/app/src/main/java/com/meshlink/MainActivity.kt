@@ -112,10 +112,13 @@ class MainActivity : AppCompatActivity() {
                 if (isGroupOwner) {
                     transport.startHost(transport.DEFAULT_PORT)
                 } else {
-                    transport.connectToHost(hostIp, transport.DEFAULT_PORT)
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        transport.connectToHost(hostIp, transport.DEFAULT_PORT)
+                    }, 1500)
                 }
             }
         )
+        wifiDirectManager.isHostConfigured = isHost
         bridge.setWifiDirectManager(wifiDirectManager)
 
         // Request runtime permissions
@@ -125,7 +128,12 @@ class MainActivity : AppCompatActivity() {
         if (isHost) {
             transport.startHost(transport.DEFAULT_PORT)
         } else {
-            transport.connectToHost("10.168.213.199", transport.DEFAULT_PORT)
+            val gateway = bridge.getGatewayIp()
+            if (gateway != "192.168.49.1" && gateway != "127.0.0.1") {
+                transport.connectToHost(gateway, transport.DEFAULT_PORT)
+            } else {
+                transport.connectToHost("10.168.213.199", transport.DEFAULT_PORT)
+            }
         }
 
         // Load self-contained offline React UI

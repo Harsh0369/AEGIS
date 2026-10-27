@@ -60,13 +60,22 @@ class AndroidDirectTransport(
      * Start transport in Host mode (listen for peer on port 9001).
      */
     fun startHost(port: Int = DEFAULT_PORT) {
+        if (isHost && isRunning.get() && serverSocket != null && !serverSocket!!.isClosed && serverSocket!!.isBound) {
+            log("INFO", "Host server already active on port $port. Ready for peer connection.")
+            return
+        }
+
         stop()
         isHost = true
         isRunning.set(true)
 
         Thread {
             try {
-                serverSocket = ServerSocket(port)
+                val ss = ServerSocket()
+                ss.reuseAddress = true
+                ss.bind(InetSocketAddress(port))
+                serverSocket = ss
+
                 val localIp = getLocalIpAddress()
                 log("INFO", "Host started on $localIp:$port. Waiting for peer...")
                 onStatusCallback?.invoke("Hosting on $localIp:$port (Waiting for peer...)", false)
@@ -99,40 +108,30 @@ class AndroidDirectTransport(
 
         Thread {
             while (isRunning.get() && !isConnected.get()) {
+                var socket: Socket? = null
                 try {
                     log("INFO", "Connecting to Host at $hostIp:$port...")
                     onStatusCallback?.invoke("Connecting to $hostIp:$port...", false)
 
-                    var socket = Socket()
-                    socket.tcpNoDelay = true
-                    var connectedSocket: Socket? = null
+                    val newSocket = Socket()
+                    socket = newSocket
+                    newSocket.tcpNoDelay = true
+                    newSocket.reuseAddress = true
 
-                    try {
-                        socket.connect(java.net.InetSocketAddress(hostIp, port), 2500)
-                        connectedSocket = socket
-                    } catch (e: Exception) {
-                        if (hostIp != "127.0.0.1") {
-                            log("INFO", "Direct IP $hostIp failed. Trying fallback 127.0.0.1:$port (ADB USB)...")
-                            val fallbackSocket = Socket()
-                            fallbackSocket.tcpNoDelay = true
-                            try {
-                                fallbackSocket.connect(java.net.InetSocketAddress("127.0.0.1", port), 2500)
-                                connectedSocket = fallbackSocket
-                            } catch (_: Exception) {}
-                        }
-                        if (connectedSocket == null) throw e
-                    }
-
-                    val finalSocket = connectedSocket ?: throw IllegalStateException("Socket is null")
-                    finalSocket.soTimeout = 0 // Infinite read timeout
-                    log("INFO", "Successfully connected to Host at ${finalSocket.inetAddress.hostAddress}:$port")
-                    handleNewConnection(finalSocket)
+                    newSocket.connect(InetSocketAddress(hostIp, port), 5000)
+                    newSocket.soTimeout = 0 // Infinite read timeout
+                    log("INFO", "Successfully connected to Host at ${newSocket.inetAddress.hostAddress}:$port")
+                    handleNewConnection(newSocket)
+                    socket = null // Ownership transferred to activeSocket
                     break
                 } catch (e: Exception) {
-                    log("WARN", "Connection attempt failed (${e.message}). Retrying in 3s...")
+                    try {
+                        socket?.close()
+                    } catch (_: Exception) {}
+                    log("WARN", "Connection to $hostIp:$port failed (${e.message}). Retrying in 1.5s...")
                     onStatusCallback?.invoke("Waiting for Host ($hostIp:$port)...", false)
                     try {
-                        Thread.sleep(3000)
+                        Thread.sleep(1500)
                     } catch (_: InterruptedException) {
                         break
                     }
@@ -251,11 +250,23 @@ class AndroidDirectTransport(
     fun getLocalIpAddress(): String {
         try {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
-            // First check for Wi-Fi or Hotspot interfaces (ap0, wlan0, swlan0, p2p0)
+            // Prioritize Wi-Fi Direct interface (p2p0, p2p-wlan0-0)
+            for (iface in interfaces) {
+                if (!iface.isUp || iface.isLoopback) continue
+                if (iface.name.lowercase().contains("p2p")) {
+                    for (addr in Collections.list(iface.inetAddresses)) {
+                        val host = addr.hostAddress
+                        if (host != null && !addr.isLoopbackAddress && host.indexOf(':') < 0) {
+                            return host
+                        }
+                    }
+                }
+            }
+            // Check for Hotspot or Wi-Fi interfaces (ap0, wlan0, swlan0)
             for (iface in interfaces) {
                 if (!iface.isUp || iface.isLoopback) continue
                 val name = iface.name.lowercase()
-                if (name.contains("wlan") || name.contains("ap") || name.contains("p2p") || name.contains("swlan")) {
+                if (name.contains("wlan") || name.contains("ap") || name.contains("swlan")) {
                     for (addr in Collections.list(iface.inetAddresses)) {
                         val host = addr.hostAddress
                         if (host != null && !addr.isLoopbackAddress && host.indexOf(':') < 0) {

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.net.wifi.WpsInfo
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pDevice
@@ -20,8 +21,9 @@ import androidx.core.content.ContextCompat
 /**
  * WifiDirectManager
  *
- * Implements native Android Wi-Fi Direct (P2P / Wi-Fi Aware) discovery, group creation,
- * and automatic socket pairing without requiring any mobile hotspot, router, or internet.
+ * Implements native Android Wi-Fi Direct (P2P) discovery, group creation,
+ * and automatic socket pairing with robust state management, BUSY-error recovery,
+ * and autonomous Group Owner negotiation.
  */
 class WifiDirectManager(
     private val context: Context,
@@ -38,6 +40,7 @@ class WifiDirectManager(
     )
 
     private val TAG = "WifiDirectManager"
+    var isHostConfigured: Boolean = true
     private var manager: WifiP2pManager? = null
     private var channel: WifiP2pManager.Channel? = null
     private var receiver: BroadcastReceiver? = null
@@ -137,6 +140,7 @@ class WifiDirectManager(
 
     /**
      * Start active scanning for nearby Wi-Fi Direct devices.
+     * Stops any prior discovery session to clear BUSY state before scanning.
      */
     @SuppressLint("MissingPermission")
     fun discoverPeers() {
@@ -146,6 +150,26 @@ class WifiDirectManager(
             return
         }
 
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        if (wifiManager?.isWifiEnabled == false) {
+            log("WARN", "Wi-Fi is turned off.")
+            onStatusChanged("Please turn ON Wi-Fi in Android Settings", false)
+            return
+        }
+
+        // Cancel previous discovery session first to clear any BUSY state
+        manager?.stopPeerDiscovery(channel, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                initiateDiscovery()
+            }
+            override fun onFailure(reason: Int) {
+                initiateDiscovery()
+            }
+        })
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun initiateDiscovery() {
         manager?.discoverPeers(channel, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 log("INFO", "Wi-Fi Direct peer discovery initiated...")
@@ -155,7 +179,11 @@ class WifiDirectManager(
             override fun onFailure(reasonCode: Int) {
                 val reason = getFailureReason(reasonCode)
                 log("ERROR", "Peer discovery failed: $reason")
-                onStatusChanged("Scan failed: $reason", false)
+                if (reasonCode == WifiP2pManager.BUSY) {
+                    onStatusChanged("Wi-Fi Busy: Ensure Hotspot is OFF & Wi-Fi is ON", false)
+                } else {
+                    onStatusChanged("Scan failed: $reason", false)
+                }
             }
         })
     }
@@ -199,6 +227,7 @@ class WifiDirectManager(
 
     /**
      * Create an autonomous Wi-Fi Direct Group (becomes Group Owner / Host).
+     * Cleans up any existing stale group first.
      */
     @SuppressLint("MissingPermission")
     fun createGroup() {
@@ -207,16 +236,32 @@ class WifiDirectManager(
             return
         }
 
+        manager?.removeGroup(channel, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                doCreateGroup()
+            }
+            override fun onFailure(reason: Int) {
+                doCreateGroup()
+            }
+        })
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun doCreateGroup() {
         manager?.createGroup(channel, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
-                log("INFO", "Autonomous Wi-Fi Direct group created successfully!")
-                onStatusChanged("P2P Group Created (Waiting for peer...)", false)
+                log("INFO", "Autonomous Wi-Fi Direct group created successfully! (Acting as Group Owner)")
+                onStatusChanged("Group Created (Host at 192.168.49.1:9001)", false)
             }
 
             override fun onFailure(reasonCode: Int) {
                 val reason = getFailureReason(reasonCode)
                 log("ERROR", "Failed to create P2P group: $reason")
-                onStatusChanged("Create Group failed: $reason", false)
+                if (reasonCode == WifiP2pManager.BUSY) {
+                    onStatusChanged("Hotspot active! Turn OFF Hotspot to use Direct P2P", false)
+                } else {
+                    onStatusChanged("Create Group failed: $reason", false)
+                }
             }
         })
     }
@@ -236,6 +281,7 @@ class WifiDirectManager(
 
     /**
      * Connect to a specific peer by MAC address.
+     * Stops peer discovery first to free radio frequencies for handshake.
      */
     @SuppressLint("MissingPermission")
     fun connectToPeer(deviceAddress: String) {
@@ -246,21 +292,40 @@ class WifiDirectManager(
 
         val config = WifiP2pConfig().apply {
             this.deviceAddress = deviceAddress
-            wps.setup = WpsInfo.PBC // Push button configuration
+            wps.setup = WpsInfo.PBC
+            groupOwnerIntent = if (isHostConfigured) 15 else 0
         }
 
-        log("INFO", "Initiating Wi-Fi Direct pairing with $deviceAddress...")
-        onStatusChanged("Pairing with $deviceAddress...", false)
+        log("INFO", "Initiating Wi-Fi Direct pairing with $deviceAddress (Accept prompt on peer phone if shown)...")
+        onStatusChanged("Pairing... (Accept prompt on peer phone)", false)
 
+        // Always stop discovery prior to connecting to eliminate radio resource contention
+        manager?.stopPeerDiscovery(channel, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                doConnect(config, deviceAddress)
+            }
+            override fun onFailure(reason: Int) {
+                doConnect(config, deviceAddress)
+            }
+        })
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun doConnect(config: WifiP2pConfig, deviceAddress: String) {
         manager?.connect(channel, config, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 log("INFO", "Wi-Fi Direct connection negotiation started with $deviceAddress")
+                onStatusChanged("Pairing negotiated! Establishing link...", false)
             }
 
             override fun onFailure(reasonCode: Int) {
                 val reason = getFailureReason(reasonCode)
                 log("ERROR", "Wi-Fi Direct connect failed: $reason")
-                onStatusChanged("Pairing failed: $reason", false)
+                if (reasonCode == WifiP2pManager.BUSY) {
+                    onStatusChanged("Framework Busy: Turn OFF Hotspot, keep Wi-Fi ON", false)
+                } else {
+                    onStatusChanged("Pairing failed: $reason (Accept prompt on peer)", false)
+                }
             }
         })
     }
@@ -293,8 +358,8 @@ class WifiDirectManager(
 
     private fun getFailureReason(reasonCode: Int): String = when (reasonCode) {
         WifiP2pManager.P2P_UNSUPPORTED -> "P2P Unsupported on device"
-        WifiP2pManager.ERROR -> "Framework Error"
-        WifiP2pManager.BUSY -> "Framework Busy"
+        WifiP2pManager.ERROR -> "Internal Android error"
+        WifiP2pManager.BUSY -> "Framework Busy (Turn off Hotspot, keep Wi-Fi ON)"
         else -> "Code $reasonCode"
     }
 }
